@@ -91,6 +91,16 @@ public class MyApplicationContext {
         Class clazz = beanDefinition.getClazz();
         try {
             Object instance = clazz.newInstance();
+            Field[] declaredFields = clazz.getDeclaredFields();
+            for (Field declaredField : declaredFields) {
+                if (declaredField.isAnnotationPresent(Autowired.class)) {
+                    Autowired autowiredAnnotation = declaredField.getAnnotation(Autowired.class);
+                    if (autowiredAnnotation.required()) {
+                        declaredField.setAccessible(true);
+                        declaredField.set(instance, getBean(declaredField.getName()));
+                    }
+                }
+            }
             return instance;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
