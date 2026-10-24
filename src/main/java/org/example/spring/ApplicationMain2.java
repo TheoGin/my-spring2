@@ -8,9 +8,11 @@ public class ApplicationMain2 {
     public static void main(String[] args) {
         MyApplicationContext ioc = new MyApplicationContext(MySpringConfig.class);
 
-        // test Autowired
+        // test InitializingBean 初始化方法
         ProductService productService = (ProductService) ioc.getBean("productService");
-        productService.sayHello();
+        /* // test Autowired
+        ProductService productService = (ProductService) ioc.getBean("productService");
+        productService.sayHello(); */
 
         /* // test scope
         System.out.println(ioc.getBean("productDao"));

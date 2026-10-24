@@ -5,6 +5,7 @@ import org.example.spring.annotation.Autowired;
 import org.example.spring.annotation.Component;
 import org.example.spring.annotation.ComponentScan;
 import org.example.spring.annotation.Scope;
+import org.example.spring.processor.InitializingBean;
 
 import java.io.File;
 import java.lang.annotation.Annotation;
@@ -101,6 +102,16 @@ public class MyApplicationContext {
                     }
                 }
             }
+
+            System.out.println("================create instance: " + instance + "================");
+            if (instance instanceof InitializingBean) {
+                try {
+                    ((InitializingBean) instance).afterPropertiesSet();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
             return instance;
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
