@@ -1,6 +1,9 @@
 package org.example.spring.component;
 
+import org.example.spring.annotation.Component;
 import org.example.spring.processor.BeanPostProcessor;
+
+@Component
 public class MyBeanPostProcessor implements BeanPostProcessor{
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) {

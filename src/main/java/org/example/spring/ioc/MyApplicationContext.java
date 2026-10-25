@@ -5,12 +5,13 @@ import org.example.spring.annotation.Autowired;
 import org.example.spring.annotation.Component;
 import org.example.spring.annotation.ComponentScan;
 import org.example.spring.annotation.Scope;
+import org.example.spring.processor.BeanPostProcessor;
 import org.example.spring.processor.InitializingBean;
 
 import java.io.File;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +19,7 @@ public class MyApplicationContext {
     private Class configClass;
     private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String, Object> singletonObjects = new ConcurrentHashMap<>();
+    private ArrayList<BeanPostProcessor> beanPostProcessorList = new ArrayList<>();
 
     public MyApplicationContext(Class configClass) {
         this.configClass = configClass;
@@ -30,7 +32,7 @@ public class MyApplicationContext {
             String beanName = keys.nextElement();
             BeanDefinition beanDefinition = beanDefinitionMap.get(beanName);
             if ("singleton".equals(beanDefinition.getScope())) {
-                singletonObjects.put(beanName, createBean(beanDefinition));
+                singletonObjects.put(beanName, createBean(beanName, beanDefinition));
             }
         }
 
@@ -48,7 +50,7 @@ public class MyApplicationContext {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
             for (File f : files) {
-                System.out.println("f = " + f.getName());
+                // System.out.println("f = " + f.getName());
                 if (f.getName().endsWith(".class")) {
                     String className = f.getName().replace(".class", "");
                     scanPackage = scanPackage.replace("/", ".");
@@ -66,6 +68,13 @@ public class MyApplicationContext {
                                 className = beanId;
                             } else {
                                 className = StringUtils.uncapitalize(className);
+                            }
+
+                            // System.out.println("clazz.isAssignableFrom(BeanPostProcessor.class): " + clazz.isAssignableFrom(BeanPostProcessor.class)); // 为啥是 false?
+                            // if (clazz.isAssignableFrom(BeanPostProcessor.class)) { // 错误写法
+                            if (BeanPostProcessor.class.isAssignableFrom(clazz)) { // `A.isAssignableFrom(B)` 含义：B 是不是 A 的子类 / 实现类，或者 B == A
+                                beanPostProcessorList.add((BeanPostProcessor) createBean(className, beanDefinition));
+                                continue;
                             }
 
                             if (clazz.isAnnotationPresent(Scope.class)) {
@@ -88,7 +97,7 @@ public class MyApplicationContext {
         }
     }
 
-    private Object createBean(BeanDefinition beanDefinition) {
+    private Object createBean(String beanName, BeanDefinition beanDefinition) {
         Class clazz = beanDefinition.getClazz();
         try {
             Object instance = clazz.newInstance();
@@ -104,11 +113,26 @@ public class MyApplicationContext {
             }
 
             System.out.println("================create instance: " + instance + "================");
+
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+                Object current = beanPostProcessor.postProcessBeforeInitialization(instance, beanName);
+                if (current != null) {
+                    instance = current;
+                }
+            }
+
             if (instance instanceof InitializingBean) {
                 try {
                     ((InitializingBean) instance).afterPropertiesSet();
                 } catch (Exception e) {
                     throw new RuntimeException(e);
+                }
+            }
+
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+                Object current = beanPostProcessor.postProcessAfterInitialization(instance, beanName);
+                if (current != null) {
+                    instance = current;
                 }
             }
 
@@ -128,7 +152,7 @@ public class MyApplicationContext {
             if ("singleton".equals(beanDefinition.getScope())) {
                 return singletonObjects.get(beanName);
             } else {
-                return createBean(beanDefinition);
+                return createBean(beanName, beanDefinition);
             }
         }
         throw new NullPointerException("not found bean: " + beanName);
